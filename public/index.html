@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Módulo de Auditores</title>
+  <link rel="icon" href="img/isotipo_full.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=2026102801">
+</head>
+<body>
+  <header class="top">
+    <img src="img/logo_claro.png" alt="Instacredit">
+    <div class="tit">Módulo de <span>Auditores</span></div>
+    <div class="acciones">
+      <span id="ultima" class="small"></span>
+      <button id="btnActualizar" class="btn sec">Actualizar</button>
+      <button id="btnDescargar" class="btn">Descargar Excel</button>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs">
+    <button data-tab="pendientes" class="on">Por auditar <span class="cnt" id="cntPend"></span></button>
+    <button data-tab="auditadas">Auditadas <span class="cnt" id="cntAud"></span></button>
+  </nav>
+  <main>
+    <div id="aviso" class="aviso" hidden></div>
+    <section class="kpis" id="kpis"></section>
+    <div class="filtros">
+      <label>Mes <span class="seg" id="periodos"></span></label>
+      <label>Buscar <input id="fBuscar" type="search" placeholder="Solicitud, llave, promotor o usuario"></label>
+      <label>Tipo de crédito <select id="fTipo"></select></label>
+      <label>Estado <select id="fEstado"></select></label>
+      <label>Categorización <select id="fCat"></select></label>
+    </div>
+    <div class="tabla-caja">
+      <table>
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="vacio" class="vacio" hidden>
+        <img src="img/prestamito_pensando.png" alt="">
+        <p>No hay solicitudes con estos filtros.</p>
+      </div>
+    </div>
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="config.js?v=2026102801"></script>
+  <script src="app.js?v=2026102801"></script>
+</body>
+</html>

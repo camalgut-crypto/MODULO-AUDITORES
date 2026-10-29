@@ -1,0 +1,3 @@
+SELECT * FROM dwh.vw_historico_solicitud_pais
+WHERE ID_PAIS = 2
+ORDER BY [FECHA CREACION], [FECHA MODIFICACION];

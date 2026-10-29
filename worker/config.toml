@@ -1,0 +1,21 @@
+# Configuración del proceso de actualización del Módulo de Auditores (sin secretos).
+# Las credenciales SQL son las mismas de Loan Tape / Módulo de Garantías (Administrador de credenciales de Windows).
+
+cada_minutos = 60   # actualización automática; el botón "Actualizar" de la app la pide al momento
+
+[servidor]
+server = 'SRV-TORTUGUERO\DATAWAREHOUSE'   # comillas simples: la barra invertida se toma literal
+database = "GENESIS_REGIONAL"
+driver = "ODBC Driver 18 for SQL Server"   # si no está instalado se usa el más nuevo disponible
+servicio_credenciales = "modulo_garantias_sql"
+
+[consultas]
+principal = "worker/sql/principal.sql"
+estados = "worker/sql/estados.sql"
+
+[supabase]
+# Mismo proyecto que Tiempos DAC; las tablas de este módulo llevan el prefijo aud_
+url = "https://lzgteejsjxrbadsqlpnd.supabase.co"
+anon_key = "sb_publishable_3v2gGe5N9Oh1eW-9ywMb1g_3Buo8af8"
+usuario = "sistema"      # usuario de carga de Tiempos DAC (rol sistema); contraseña ya guardada en keyring
+servicio_credenciales = "tiempos_dac_supabase"

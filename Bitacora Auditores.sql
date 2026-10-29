@@ -1,0 +1,22 @@
+SELECT *
+FROM [GENESIS_REGIONAL].[dwh].[V_BIT_REGIONAL_COLOCACION_new]
+WHERE IdPais = 2
+    AND Fecha_creacion >= DATEADD(
+        MONTH, -1,
+        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    )
+    AND Fecha_creacion < DATEADD(
+        MONTH, 1,
+        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    )
+    AND Estado IN (
+        'APROBADO INFORMA',
+        'AUDITADO',
+        'EXPEDIENTE COMPLETO',
+        'EXPEDIENTE CORREGIDO ASESOR',
+        'EXPEDIENTE DIGITALIZADO',
+        'EXPEDIENTE INCOMPLETO',
+        'EXPEDIENTE INSCRIPCIÓN PRENDARIA',
+        'FORMALIZADO',
+        'REVISADO'
+    );

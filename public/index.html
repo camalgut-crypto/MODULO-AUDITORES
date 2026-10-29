@@ -8,45 +8,95 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2026102801">
+  <link rel="stylesheet" href="styles.css?v=2026102802">
 </head>
 <body>
-  <header class="top">
-    <img src="img/logo_claro.png" alt="Instacredit">
-    <div class="tit">Módulo de <span>Auditores</span></div>
-    <div class="acciones">
-      <span id="ultima" class="small"></span>
-      <button id="btnActualizar" class="btn sec">Actualizar</button>
-      <button id="btnDescargar" class="btn">Descargar Excel</button>
+  <div id="login" class="login" hidden>
+    <div class="lado">
+      <img class="logo" src="img/logo_claro.png" alt="Instacredit">
+      <div><h1>Módulo de <span>Auditores</span></h1><p>Solicitudes aprobadas por Informa · Nicaragua<br>Del formalizado a la auditoría</p></div>
+      <img class="mascota" src="img/prestamito_leyendo.png" alt="">
     </div>
-  </header>
-  <nav class="tabs" id="tabs">
-    <button data-tab="pendientes" class="on">Por auditar <span class="cnt" id="cntPend"></span></button>
-    <button data-tab="auditadas">Auditadas <span class="cnt" id="cntAud"></span></button>
-  </nav>
-  <main>
-    <div id="aviso" class="aviso" hidden></div>
-    <section class="kpis" id="kpis"></section>
-    <div class="filtros">
-      <label>Mes <span class="seg" id="periodos"></span></label>
-      <label>Buscar <input id="fBuscar" type="search" placeholder="Solicitud, llave, promotor o usuario"></label>
-      <label>Tipo de crédito <select id="fTipo"></select></label>
-      <label>Estado <select id="fEstado"></select></label>
-      <label>Categorización <select id="fCat"></select></label>
-    </div>
-    <div class="tabla-caja">
-      <table>
-        <thead id="thead"></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-      <div id="vacio" class="vacio" hidden>
-        <img src="img/prestamito_pensando.png" alt="">
-        <p>No hay solicitudes con estos filtros.</p>
+    <form id="flog">
+      <h2>Ingresar</h2>
+      <p class="muted small">Escriba su usuario tal como se lo entregaron (su nombre completo). Si usa Tiempos DAC, es el mismo usuario y la misma contraseña.</p>
+      <label for="lu">Usuario</label><input id="lu" autocomplete="username" required>
+      <label for="lp">Contraseña</label><input id="lp" type="password" autocomplete="current-password" required>
+      <p id="lmsg" class="small" style="color:var(--rojo);min-height:18px"></p>
+      <button class="btn" style="width:100%">Entrar</button>
+    </form>
+    <form id="fclave" hidden>
+      <h2>Cambie su contraseña</h2>
+      <p class="muted small">Está usando la contraseña genérica. Elija una contraseña propia de al menos 8 caracteres para continuar.</p>
+      <label for="cn1">Nueva contraseña</label><input id="cn1" type="password" autocomplete="new-password" required>
+      <label for="cn2">Repita la nueva contraseña</label><input id="cn2" type="password" autocomplete="new-password" required>
+      <p id="cmsg" class="small" style="color:var(--rojo);min-height:18px"></p>
+      <button class="btn" style="width:100%">Guardar y entrar</button>
+    </form>
+  </div>
+
+  <div id="app" hidden>
+    <header class="top">
+      <img src="img/logo_claro.png" alt="Instacredit">
+      <div class="tit">Módulo de <span>Auditores</span></div>
+      <div class="acciones">
+        <span id="ultima" class="small"></span>
+        <button id="btnActualizar" class="btn sec">Actualizar</button>
+        <button id="btnDescargar" class="btn">Descargar Excel</button>
+        <span class="yo"><span id="yoNombre"></span> <span class="chip" id="yoRol"></span></span>
+        <button id="btnClave" class="btn sec mini">Cambiar contraseña</button>
+        <button id="btnSalir" class="btn sec mini">Salir</button>
       </div>
-    </div>
-  </main>
+    </header>
+    <nav class="tabs" id="tabs">
+      <button data-tab="pendientes" class="on">Por auditar <span class="cnt" id="cntPend"></span></button>
+      <button data-tab="auditadas">Auditadas <span class="cnt" id="cntAud"></span></button>
+      <button data-tab="admin" id="tabAdmin" hidden>Administración</button>
+    </nav>
+    <main>
+      <div id="aviso" class="aviso" hidden></div>
+      <div id="vistaDatos">
+        <section class="kpis" id="kpis"></section>
+        <div class="filtros">
+          <label>Mes <span class="seg" id="periodos"></span></label>
+          <label>Buscar <input id="fBuscar" type="search" placeholder="Solicitud, llave, promotor o usuario"></label>
+          <label>Tipo de crédito <select id="fTipo"></select></label>
+          <label>Estado <select id="fEstado"></select></label>
+          <label>Categorización <select id="fCat"></select></label>
+        </div>
+        <div class="tabla-caja">
+          <table>
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div id="vacio" class="vacio" hidden>
+            <img src="img/prestamito_pensando.png" alt="">
+            <p>No hay solicitudes con estos filtros.</p>
+          </div>
+        </div>
+      </div>
+      <div id="vistaAdmin" hidden>
+        <div class="panel">
+          <h3>Nuevo usuario</h3>
+          <form id="fnuevo" class="filtros">
+            <label>Nombre completo <input id="nNombre" required placeholder="Nombre Apellido Apellido"></label>
+            <label>Perfil <select id="nRol"></select></label>
+            <button class="btn">Crear usuario</button>
+          </form>
+          <p class="small muted">El usuario ingresa con su nombre completo y la contraseña inicial <b>12345678</b>, y la primera vez la app le pide cambiarla. Si la persona ya usa Tiempos DAC, solo se le da acceso y conserva su contraseña.</p>
+        </div>
+        <div class="tabla-caja">
+          <table>
+            <thead><tr><th>Usuario (nombre completo)</th><th>Perfil</th><th>Activo</th><th></th></tr></thead>
+            <tbody id="tusuarios"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.99.3/dist/umd/supabase.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="config.js?v=2026102801"></script>
-  <script src="app.js?v=2026102801"></script>
+  <script src="config.js?v=2026102802"></script>
+  <script src="app.js?v=2026102802"></script>
 </body>
 </html>

@@ -1,7 +1,16 @@
-// Módulo de Auditores: lee aud_solicitudes de Supabase, filtra, y descarga en Excel.
+// Módulo de Auditores: ingreso con usuario, lee aud_solicitudes de Supabase, filtra y descarga en Excel.
 const CFG = window.AUD_CONFIG;
 const LOCAL = new URLSearchParams(location.search).has('local');
+const sb = LOCAL ? null : window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
+const ok = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
+
+const DOMINIO = '@tiemposdac.local';
+const CLAVE_INICIAL = '12345678';
+const ROLES = { admin: 'Administrador', jefe: 'Jefe DAC', gerente: 'Gerente DAC', auditor: 'Auditor' };
+// "Hilcia Paola Morales Mendez" → "hilcia.paola.morales.mendez" (igual que Tiempos DAC)
+const slug = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .trim().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '');
 
 // Columnas de la imagen de referencia; la pestaña Auditadas agrega fecha y usuario de auditoría
 const COLS = [
@@ -23,24 +32,75 @@ const COLS_AUD = [...COLS,
 ];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-const S = { datos: [], periodo: null, tab: 'pendientes', orden: { k: 'fecha_aprobado_informa', asc: true } };
+const S = { perfil: null, datos: [], periodo: null, tab: 'pendientes', orden: { k: 'fecha_aprobado_informa', asc: true } };
 
-// ---------- Datos ----------
-async function rest(ruta, opciones = {}) {
-  const r = await fetch(`${CFG.SUPABASE_URL}/rest/v1/${ruta}`, {
-    ...opciones,
-    headers: { apikey: CFG.SUPABASE_ANON_KEY, Authorization: `Bearer ${CFG.SUPABASE_ANON_KEY}`,
-               'Content-Type': 'application/json', ...(opciones.headers || {}) },
-  });
-  if (!r.ok) throw new Error(`Supabase ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  return r.status === 204 ? null : r.json();
+// ---------- Sesión ----------
+async function perfilActual() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) return null;
+  return ok(await sb.from('aud_perfiles').select('*').eq('id', data.session.user.id).maybeSingle());
 }
 
-async function leerTodo() {
+function mostrarLogin(msg = '') {
+  $('app').hidden = true;
+  $('login').hidden = false;
+  $('flog').hidden = false;
+  $('fclave').hidden = true;
+  $('lmsg').textContent = msg;
+}
+
+$('flog').addEventListener('submit', async e => {
+  e.preventDefault();
+  const clave = $('lp').value;
+  try {
+    ok(await sb.auth.signInWithPassword({ email: slug($('lu').value) + DOMINIO, password: clave }));
+    const p = await perfilActual();
+    if (!p || !p.activo) { await sb.auth.signOut(); return mostrarLogin('Usuario sin acceso al Módulo de Auditores'); }
+    S.perfil = p;
+    $('lp').value = '';
+  } catch {
+    return mostrarLogin('Usuario o contraseña incorrectos');
+  }
+  // Con la contraseña genérica no se entra hasta elegir una propia
+  if (clave === CLAVE_INICIAL) {
+    $('flog').hidden = true;
+    $('fclave').hidden = false;
+    $('cmsg').textContent = '';
+    return $('cn1').focus();
+  }
+  await iniciar();
+});
+
+$('fclave').addEventListener('submit', async e => {
+  e.preventDefault();
+  const n1 = $('cn1').value, n2 = $('cn2').value;
+  if (n1.length < 8) return ($('cmsg').textContent = 'La contraseña debe tener al menos 8 caracteres.');
+  if (n1 === CLAVE_INICIAL) return ($('cmsg').textContent = 'Use una contraseña distinta de la genérica.');
+  if (n1 !== n2) return ($('cmsg').textContent = 'Las dos contraseñas no coinciden.');
+  try {
+    ok(await sb.auth.updateUser({ password: n1 }));
+    $('cn1').value = $('cn2').value = '';
+    await iniciar();
+  } catch (err) { $('cmsg').textContent = err.message; }
+});
+
+async function iniciar() {
+  $('login').hidden = true;
+  $('app').hidden = false;
+  const rol = S.perfil?.rol;
+  $('yoNombre').textContent = S.perfil?.nombre || 'Vista previa local';
+  $('yoRol').textContent = ROLES[rol] || '';
+  $('tabAdmin').hidden = !(rol === 'admin' || rol === 'jefe');
+  $('btnClave').hidden = $('btnSalir').hidden = LOCAL;
+  await cargar();
+}
+
+// ---------- Datos ----------
+async function leerTodo(tabla, orden) {
   // PostgREST entrega como máximo 1000 filas por llamada: se pide por páginas
   const filas = [];
-  for (let desde = 0; ; desde += 1000) {
-    const p = await rest('aud_solicitudes?select=*&order=solicitud', { headers: { Range: `${desde}-${desde + 999}` } });
+  for (let i = 0; ; i += 1000) {
+    const p = ok(await sb.from(tabla).select('*').order(orden).range(i, i + 999));
     filas.push(...p);
     if (p.length < 1000) return filas;
   }
@@ -52,7 +112,8 @@ async function cargar() {
     const d = await (await fetch('local/datos.json', { cache: 'no-store' })).json();
     S.datos = d.solicitudes; ultima = d.ultima_actualizacion;
   } else {
-    const [filas, conf] = await Promise.all([leerTodo(), rest('aud_config?select=valor&clave=eq.ultima_actualizacion')]);
+    const [filas, conf] = await Promise.all([leerTodo('aud_solicitudes', 'solicitud'),
+      sb.from('aud_config').select('valor').eq('clave', 'ultima_actualizacion').then(ok)]);
     S.datos = filas; ultima = conf[0]?.valor;
   }
   $('ultima').textContent = ultima ? `Actualizado ${new Date(ultima).toLocaleString('es-NI', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Sin datos aún';
@@ -110,7 +171,8 @@ function ordenar(filas) {
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const fmtFecha = v => { const [d, h] = v.split(' '); const [a, m, dd] = d.split('-'); return `${dd}/${m}/${a} ${h.slice(0, 5)}`; };
+// Supabase devuelve "2026-10-09T11:01:48"; el archivo local, "2026-10-09 11:01:48"
+const fmtFecha = v => { const [d, h] = v.split(/[ T]/); const [a, m, dd] = d.split('-'); return `${dd}/${m}/${a} ${h.slice(0, 5)}`; };
 function claseEstado(e) {
   if (e === 'AUDITADO' || e === 'FORMALIZADO' || e === 'REVISADO') return e;
   if (/INCOMPLETO/.test(e)) return 'INCOMPLETO';
@@ -134,6 +196,11 @@ function kpis() {
 }
 
 function pintar() {
+  const admin = S.tab === 'admin';
+  $('vistaDatos').hidden = admin;
+  $('vistaAdmin').hidden = !admin;
+  $('btnDescargar').hidden = admin;
+  if (admin) return pintarUsuarios();
   kpis();
   const pend = filtrar('pendientes'), aud = filtrar('auditadas');
   $('cntPend').textContent = pend.length.toLocaleString('es-NI');
@@ -183,11 +250,11 @@ async function actualizar() {
   const btn = $('btnActualizar');
   btn.disabled = true; btn.textContent = 'Actualizando…';
   try {
-    const [p] = await rest('aud_actualizaciones', { method: 'POST', body: '{}', headers: { Prefer: 'return=representation' } });
+    const p = ok(await sb.from('aud_actualizaciones').insert({ solicitado_nombre: S.perfil.nombre }).select().single());
     const t0 = Date.now();
     for (;;) {
       await new Promise(r => setTimeout(r, 4000));
-      const [e] = await rest(`aud_actualizaciones?select=estado,mensaje&id=eq.${p.id}`);
+      const e = ok(await sb.from('aud_actualizaciones').select('estado,mensaje').eq('id', p.id).single());
       if (e.estado === 'ok') { aviso(''); await cargar(); break; }
       if (e.estado === 'error') { aviso(`La actualización falló: ${e.mensaje || ''}`, true); break; }
       if (e.estado === 'pendiente' && Date.now() - t0 > 60000) {
@@ -201,6 +268,67 @@ async function actualizar() {
     btn.disabled = false; btn.textContent = 'Actualizar';
   }
 }
+
+// ---------- Administración (admin: todo; Jefe DAC: solo crear auditores) ----------
+async function pintarUsuarios() {
+  const admin = S.perfil?.rol === 'admin';
+  const roles = admin ? Object.keys(ROLES) : ['auditor'];
+  $('nRol').innerHTML = roles.map(r => `<option value="${r}">${ROLES[r]}</option>`).join('');
+  if (LOCAL) { $('tusuarios').innerHTML = '<tr><td colspan="4" class="nada">Vista previa local: sin usuarios</td></tr>'; return; }
+  try {
+    const us = ok(await sb.from('aud_perfiles').select('*').order('nombre'));
+    $('tusuarios').innerHTML = us.map(u => `<tr data-id="${u.id}">
+      <td>${esc(u.nombre)}</td>
+      <td>${admin ? `<select data-campo="rol">${Object.entries(ROLES).map(([k, t]) => `<option value="${k}"${k === u.rol ? ' selected' : ''}>${t}</option>`).join('')}</select>` : ROLES[u.rol]}</td>
+      <td>${admin ? `<input type="checkbox" data-campo="activo"${u.activo ? ' checked' : ''}>` : (u.activo ? 'Sí' : 'No')}</td>
+      <td>${admin ? '<button class="btn mini lin" data-acc="clave">Restablecer contraseña</button>' : ''}</td></tr>`).join('');
+  } catch (err) { aviso(err.message, true); }
+}
+
+$('fnuevo').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nombre = $('nNombre').value.trim().replace(/\s+/g, ' ');
+  try {
+    ok(await sb.rpc('aud_crear_usuario', { p_usuario: slug(nombre), p_nombre: nombre, p_rol: $('nRol').value, p_password: CLAVE_INICIAL }));
+    $('nNombre').value = '';
+    alert(`Usuario creado. Ingresa con su nombre completo "${nombre}" y la contraseña ${CLAVE_INICIAL}; la primera vez se le pide cambiarla (si ya usaba Tiempos DAC, entra con su contraseña de siempre).`);
+    pintarUsuarios();
+  } catch (err) { alert(err.message); }
+});
+
+$('tusuarios').addEventListener('change', async e => {
+  const tr = e.target.closest('tr[data-id]');
+  if (!tr) return;
+  try {
+    ok(await sb.rpc('aud_editar_usuario', { p_id: tr.dataset.id, p_rol: tr.querySelector('[data-campo=rol]').value,
+                                             p_activo: tr.querySelector('[data-campo=activo]').checked }));
+  } catch (err) { alert(err.message); pintarUsuarios(); }
+});
+
+$('tusuarios').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-acc=clave]');
+  if (!b || !confirm(`¿Restablecer la contraseña a ${CLAVE_INICIAL}?`)) return;
+  try {
+    ok(await sb.rpc('aud_restablecer_clave', { p_id: b.closest('tr').dataset.id, p_password: CLAVE_INICIAL }));
+    alert(`Contraseña restablecida a ${CLAVE_INICIAL}.`);
+  } catch (err) { alert(err.message); }
+});
+
+$('btnClave').addEventListener('click', async () => {
+  const actual = prompt('Contraseña actual:');
+  if (!actual) return;
+  const nueva = prompt('Nueva contraseña (mínimo 8 caracteres). Si usa Tiempos DAC, también cambia allá:');
+  if (!nueva) return;
+  if (nueva.length < 8) return alert('La contraseña debe tener al menos 8 caracteres.');
+  if (nueva === CLAVE_INICIAL) return alert('Use una contraseña distinta de la genérica.');
+  try {
+    ok(await sb.auth.signInWithPassword({ email: S.perfil.usuario + DOMINIO, password: actual }));
+    ok(await sb.auth.updateUser({ password: nueva }));
+    alert('Contraseña cambiada.');
+  } catch { alert('La contraseña actual no es correcta.'); }
+});
+
+$('btnSalir').addEventListener('click', async () => { await sb.auth.signOut(); S.perfil = null; mostrarLogin(); });
 
 // ---------- Eventos ----------
 $('tabs').addEventListener('click', e => {
@@ -227,4 +355,13 @@ $('fBuscar').addEventListener('input', pintar);
 $('btnDescargar').addEventListener('click', descargar);
 $('btnActualizar').addEventListener('click', actualizar);
 
-cargar().catch(err => aviso(`No se pudieron leer los datos: ${err.message}`, true));
+(async () => {
+  try {
+    if (LOCAL) return await iniciar();
+    // Sin sesión guardada: hay que ingresar (así también se revisa si trae la contraseña genérica)
+    S.perfil = await perfilActual();
+    if (S.perfil?.activo) await iniciar(); else mostrarLogin();
+  } catch (err) {
+    mostrarLogin(`No se pudo iniciar: ${err.message}`);
+  }
+})();
